@@ -1,0 +1,12 @@
+node_modules
+dist
+.DS_Store
+*.local
+.vercel
+
+
+# Documentos comerciales (no publicar)
+*.pdf
+
+# Caché de TypeScript
+*.tsbuildinfo

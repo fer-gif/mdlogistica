@@ -1,0 +1,215 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', Inter, system-ui, -apple-system, sans-serif;
+    background-color: #f5f6f8;
+    color: #231f20;
+  }
+}
+
+/* ---------- Mapa ---------- */
+.leaflet-container {
+  font-family: 'Plus Jakarta Sans', Inter, system-ui, sans-serif !important;
+  background: #dfe6ec;
+}
+
+.md-pick-mode .leaflet-container {
+  cursor: crosshair !important;
+}
+
+.md-leaflet-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Movimiento suave de los camiones entre lecturas GPS */
+.md-truck-marker {
+  transition: transform 1.5s linear;
+}
+.md-zooming .md-truck-marker,
+.leaflet-zoom-anim .md-truck-marker {
+  transition: none !important;
+}
+
+.md-truck-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.md-truck-dot {
+  position: relative;
+  border-radius: 9999px;
+  border: 2.5px solid #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.md-truck-dot.is-selected {
+  border-color: #fff000;
+  box-shadow: 0 0 0 3px #b71e23, 0 6px 16px rgba(0, 0, 0, 0.45);
+}
+.md-truck-arrow {
+  display: flex;
+  transition: transform 1.2s ease;
+}
+.md-truck-pulse {
+  position: absolute;
+  inset: -7px;
+  border-radius: 9999px;
+  pointer-events: none;
+  animation: mdPulse 2.2s cubic-bezier(0.24, 0, 0.38, 1) infinite;
+}
+.md-truck-label {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  background: rgba(24, 29, 38, 0.92);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+.md-truck-label.is-selected {
+  background: #b71e23;
+  border-color: #fff000;
+}
+
+@keyframes mdPulse {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.9;
+  }
+  70%,
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+
+.md-dest-base {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: #231f20;
+  border: 2px solid #fff000;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+.md-dest-base.is-deposito {
+  background: #b71e23;
+  border-color: #fff;
+  font-size: 8px;
+}
+.md-dest-base-label {
+  position: absolute;
+  top: 33px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.95);
+  color: #231f20;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 5px;
+  border: 1px solid #e4e4e7;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+.md-dest-dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 9999px;
+  background: #fff;
+  border: 3px solid #f2851d;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+.md-dest-dot.is-br {
+  border-color: #16a34a;
+}
+
+.leaflet-tooltip.md-map-tooltip {
+  background: rgba(24, 29, 38, 0.96);
+  color: #fff;
+  border: 1px solid rgba(206, 35, 41, 0.55);
+  border-radius: 9px;
+  padding: 6px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+}
+.leaflet-tooltip-top.md-map-tooltip::before {
+  border-top-color: rgba(24, 29, 38, 0.96);
+}
+.md-tt-eyebrow {
+  color: #f2851d;
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.md-tt-title {
+  font-weight: 800;
+  font-size: 12px;
+  margin-top: 1px;
+}
+.md-tt-sub {
+  opacity: 0.8;
+  font-size: 10.5px;
+  margin-top: 1px;
+}
+
+.leaflet-control-attribution {
+  font-size: 9px !important;
+  background: rgba(255, 255, 255, 0.75) !important;
+}
+.leaflet-control-zoom a {
+  color: #231f20 !important;
+}
+
+/* ---------- Generales ---------- */
+@keyframes mdSlideIn {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.md-slide-in {
+  animation: mdSlideIn 0.25s ease-out;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(35, 31, 32, 0.18);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(183, 30, 35, 0.7);
+}
