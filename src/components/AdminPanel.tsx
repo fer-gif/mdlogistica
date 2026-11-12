@@ -58,14 +58,12 @@ function Stat({
 export const AdminPanel: React.FC<{
   tab: AdminTab;
   onTabChange: (t: AdminTab) => void;
-  /** Pestañas visibles según el rol (Finanzas solo ve la suya). */
-  allowedTabs?: AdminTab[];
   selectedTruckId: string;
   setSelectedTruckId: (id: string) => void;
   onNavigatePanel: (p: PanelId) => void;
   onPreviewDriver: (truckId: string) => void;
   onPreviewClient: (clientId: string) => void;
-}> = ({ tab, onTabChange, allowedTabs, selectedTruckId, setSelectedTruckId, onNavigatePanel, onPreviewDriver, onPreviewClient }) => {
+}> = ({ tab, onTabChange, selectedTruckId, setSelectedTruckId, onNavigatePanel, onPreviewDriver, onPreviewClient }) => {
   const { state } = useDemo();
 
   const k = useMemo(() => {
@@ -81,7 +79,7 @@ export const AdminPanel: React.FC<{
     return { moving, pending, toUnload, toInvoice, overdue, docAlerts };
   }, [state.trucks, state.trips, state.drivers]);
 
-  const allTabs: { id: AdminTab; label: string; icon: React.ReactNode; badge?: number }[] = [
+  const tabs: { id: AdminTab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'trips', label: 'Viajes', icon: <ListChecks className="h-4 w-4" />, badge: k.pending },
     { id: 'tracking', label: 'Mapa', icon: <MapPin className="h-4 w-4" /> },
     { id: 'finance', label: 'Finanzas', icon: <Landmark className="h-4 w-4" />, badge: k.toInvoice + k.overdue },
@@ -90,8 +88,7 @@ export const AdminPanel: React.FC<{
     { id: 'routes', label: 'Rutas', icon: <Route className="h-4 w-4" /> },
     { id: 'comms', label: 'Comunicación', icon: <Megaphone className="h-4 w-4" /> },
   ];
-  const tabs = allowedTabs ? allTabs.filter((t) => allowedTabs.includes(t.id)) : allTabs;
-  const current = tabs.some((t) => t.id === tab) ? tab : tabs[0].id;
+  const current = tab;
 
   const props: AdminTabProps = {
     onNavigatePanel,
@@ -107,7 +104,7 @@ export const AdminPanel: React.FC<{
 
   return (
     <div className="space-y-4">
-      {tabs.length > 1 && <Tabs<AdminTab> value={current} onChange={onTabChange} items={tabs} />}
+      <Tabs<AdminTab> value={current} onChange={onTabChange} items={tabs} />
 
       {showOpsSummary && (
         <div className="grid grid-cols-2 divide-zinc-100 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm sm:grid-cols-4 sm:divide-x">

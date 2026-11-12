@@ -1,6 +1,7 @@
 export type PanelId = 'admin' | 'driver' | 'client' | 'finance';
 
-export type UserRole = 'admin' | 'driver' | 'client' | 'finance';
+/** Finanzas no tiene usuario propio: es una pestaña de Administración. */
+export type UserRole = 'admin' | 'driver' | 'client';
 
 export interface DemoUser {
   username: string;

@@ -79,8 +79,6 @@ function allowedPanels(role: DemoUser['role']): NavPanel[] {
   switch (role) {
     case 'admin':
       return ['admin', 'driver', 'client'];
-    case 'finance':
-      return ['admin'];
     case 'driver':
       return ['driver'];
     case 'client':
@@ -92,7 +90,7 @@ function Shell({ user, onLogout }: { user: DemoUser; onLogout: () => void }) {
   const { state } = useDemo();
   const panels = allowedPanels(user.role);
   const [active, setActive] = useState<NavPanel>(panels[0]);
-  const [adminTab, setAdminTab] = useState<AdminTab>(user.role === 'finance' ? 'finance' : 'trips');
+  const [adminTab, setAdminTab] = useState<AdminTab>('trips');
   const [selectedTruckId, setSelectedTruckId] = useState('truck-104');
   const [previewTruckId, setPreviewTruckId] = useState('truck-104');
   const [previewClientId, setPreviewClientId] = useState('cli-arcor');
@@ -184,8 +182,6 @@ function Shell({ user, onLogout }: { user: DemoUser; onLogout: () => void }) {
               <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
                 {user.role === 'admin'
                   ? 'Administración'
-                  : user.role === 'finance'
-                  ? 'Finanzas'
                   : user.role === 'driver'
                   ? 'Chofer'
                   : 'Cliente'}
@@ -227,7 +223,6 @@ function Shell({ user, onLogout }: { user: DemoUser; onLogout: () => void }) {
               setAdminTab(t);
               window.scrollTo({ top: 0 });
             }}
-            allowedTabs={user.role === 'finance' ? ['finance'] : undefined}
             selectedTruckId={selectedTruckId}
             setSelectedTruckId={setSelectedTruckId}
             onNavigatePanel={navigate}

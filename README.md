@@ -7,7 +7,6 @@ Prototipo funcional de la plataforma propuesta por **Agencia Muove** para **MD L
 | Rol | Usuario | Contraseña | Ve |
 |---|---|---|---|
 | Administración | `administracion` | `mdlogistica2026` | Administración completa (incluida Finanzas), con vista previa de chofer y cliente |
-| Finanzas | `finanzas` | `finanzas2026` | Solo la pestaña Finanzas de Administración |
 | Chofer | `chofer` | `chofer2026` | App del Chofer de la unidad MD-104 |
 | Cliente | `arcor` | `cliente2026` | Portal de Arcor S.A.I.C. |
 

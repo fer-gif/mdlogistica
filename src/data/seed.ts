@@ -36,7 +36,6 @@ export const TRUCK_STATUS_META: Record<TruckUnit['status'], { label: string; col
 
 export const DEMO_USERS: DemoUser[] = [
   { username: 'administracion', password: 'mdlogistica2026', role: 'admin', displayName: 'Operaciones MD' },
-  { username: 'finanzas', password: 'finanzas2026', role: 'finance', displayName: 'Administración y Finanzas' },
   { username: 'chofer', password: 'chofer2026', role: 'driver', displayName: 'Rubén Gómez', truckId: 'truck-104' },
   { username: 'arcor', password: 'cliente2026', role: 'client', displayName: 'Arcor S.A.I.C.', clientId: 'cli-arcor' },
 ];
