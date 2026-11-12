@@ -4,28 +4,26 @@ import { ClientAccount } from '../../types';
 import { useDemo } from '../../state/DemoContext';
 import { invoiceStatus } from '../../state/store';
 import { usd } from '../../lib/format';
-import { Button, Card, Field, inputCls, Modal, SectionHeader } from '../ui';
+import { Button, cx, Detail, ExpandableRow, Field, inputCls, Modal } from '../ui';
 import type { AdminTabProps } from '../AdminPanel';
 
-export const ClientsTab: React.FC<AdminTabProps> = ({ onPreviewClient, onNavigatePanel }) => {
+export const ClientsTab: React.FC<AdminTabProps> = ({ onPreviewClient, onNavigatePanel, goTab }) => {
   const { state } = useDemo();
   const [open, setOpen] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   return (
-    <div className="space-y-5">
-      <Card className="p-5">
-        <SectionHeader
-          title="Módulo de clientes"
-          subtitle="Datos comerciales y fiscales, contactos, tarifas preferenciales, historial de viajes y estado de cuenta en un solo perfil."
-          actions={
-            <Button onClick={() => setOpen(true)}>
-              <Plus className="h-4 w-4" /> Nuevo cliente
-            </Button>
-          }
-        />
-      </Card>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-zinc-500">
+          {state.clients.length} clientes · datos fiscales, tarifas, viajes y saldo de cada uno.
+        </p>
+        <Button onClick={() => setOpen(true)}>
+          <Plus className="h-4 w-4" /> Nuevo cliente
+        </Button>
+      </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="space-y-2">
         {state.clients.map((c) => {
           const trips = state.trips.filter((t) => t.clientId === c.id);
           const active = trips.filter((t) => t.stage !== 'delivered' && t.stage !== 'pending_assignment').length;
@@ -37,53 +35,82 @@ export const ClientsTab: React.FC<AdminTabProps> = ({ onPreviewClient, onNavigat
             .reduce((s, t) => s + (t.invoice?.amountUsd ?? 0), 0);
           const overdue = trips.filter((t) => invoiceStatus(t) === 'vencida').reduce((s, t) => s + (t.invoice?.amountUsd ?? 0), 0);
           return (
-            <Card key={c.id} className="flex flex-col p-4">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2.5">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#FEF2F2] text-[#B71E23]">
-                    <Building2 className="h-5 w-5" />
-                  </span>
-                  <div>
-                    <div className="text-sm font-extrabold">{c.name}</div>
-                    <div className="font-mono text-[11px] text-zinc-500">{c.taxId}</div>
+            <ExpandableRow
+              key={c.id}
+              open={openId === c.id}
+              onToggle={() => setOpenId(openId === c.id ? null : c.id)}
+              summary={
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                  <div className="flex w-56 min-w-0 items-center gap-2.5">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#FEF2F2] text-[#B71E23]">
+                      <Building2 className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-extrabold">{c.name}</span>
+                      <span className="block truncate font-mono text-[10px] text-zinc-500">
+                        {c.taxId} · {c.country === 'AR' ? 'AR' : 'BR'}
+                      </span>
+                    </span>
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 text-[11px]">
+                    <span className="rounded-full bg-zinc-100 px-2 py-0.5 font-bold text-zinc-700">{active} en curso</span>
+                    {pending > 0 && (
+                      <span className="rounded-full bg-[#FFF7ED] px-2 py-0.5 font-bold text-[#C25E08]">{pending} por asignar</span>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <div className="font-mono text-sm font-extrabold">{usd(owed)}</div>
+                    <div className={cx('text-[10px] font-semibold', overdue > 0 ? 'text-red-600' : 'text-zinc-400')}>
+                      {overdue > 0 ? `${usd(overdue)} vencido` : 'saldo a cobrar'}
+                    </div>
                   </div>
                 </div>
-                <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-bold text-zinc-600">
-                  {c.country === 'AR' ? 'Argentina' : 'Brasil'}
-                </span>
-              </div>
-              <div className="mt-3 space-y-1 text-xs text-zinc-600">
-                <div className="font-semibold text-[#231F20]">{c.contactName}</div>
-                <div className="flex items-center gap-1.5">
-                  <Mail className="h-3 w-3" /> {c.email}
+              }
+            >
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <Detail label="Contacto" value={c.contactName} />
+                  <Detail
+                    label="Email"
+                    value={
+                      <span className="inline-flex items-center gap-1">
+                        <Mail className="h-3 w-3" /> {c.email}
+                      </span>
+                    }
+                  />
+                  <Detail
+                    label="Teléfono"
+                    value={
+                      <span className="inline-flex items-center gap-1">
+                        <Phone className="h-3 w-3" /> {c.phone}
+                      </span>
+                    }
+                  />
+                  <Detail label="País" value={c.country === 'AR' ? 'Argentina · Factura ARCA' : 'Brasil · CT-e SEFAZ'} />
+                  <Detail label="Tarifa preferencial" value={`USD ${c.ratePerKmUsd.toFixed(2)} / km`} />
+                  <Detail label="Condición de pago" value={`${c.paymentTermsDays} días`} />
+                  <Detail label="Viajes entregados" value={delivered} />
+                  <Detail label="Facturado histórico" value={usd(invoiced)} />
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <Phone className="h-3 w-3" /> {c.phone}
+                <div className="flex flex-wrap justify-end gap-2 border-t border-zinc-100 pt-3">
+                  {pending > 0 && (
+                    <Button size="sm" variant="secondary" onClick={() => goTab('trips')}>
+                      Asignar sus viajes
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      onPreviewClient(c.id);
+                      onNavigatePanel('client');
+                    }}
+                  >
+                    Ver su portal <ExternalLink className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
               </div>
-              <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-                <Mini label="En curso" value={active} />
-                <Mini label="Pendientes" value={pending} />
-                <Mini label="Entregados" value={delivered} />
-              </div>
-              <div className="mt-3 space-y-1 border-t border-zinc-100 pt-3 text-xs">
-                <Row label="Tarifa preferencial" value={`USD ${c.ratePerKmUsd.toFixed(2)} / km`} />
-                <Row label="Condición de pago" value={`${c.paymentTermsDays} días`} />
-                <Row label="Facturado histórico" value={usd(invoiced)} />
-                <Row label="Saldo a cobrar" value={usd(owed)} strong />
-                {overdue > 0 && <Row label="Vencido" value={usd(overdue)} danger />}
-              </div>
-              <Button
-                variant="secondary"
-                className="mt-4"
-                onClick={() => {
-                  onPreviewClient(c.id);
-                  onNavigatePanel('client');
-                }}
-              >
-                Ver su portal <ExternalLink className="h-3.5 w-3.5" />
-              </Button>
-            </Card>
+            </ExpandableRow>
           );
         })}
       </div>
@@ -92,26 +119,6 @@ export const ClientsTab: React.FC<AdminTabProps> = ({ onPreviewClient, onNavigat
     </div>
   );
 };
-
-function Mini({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-lg bg-zinc-50 py-2">
-      <div className="text-lg font-extrabold leading-none">{value}</div>
-      <div className="mt-1 text-[10px] font-bold uppercase text-zinc-400">{label}</div>
-    </div>
-  );
-}
-
-function Row({ label, value, strong, danger }: { label: string; value: string; strong?: boolean; danger?: boolean }) {
-  return (
-    <div className="flex justify-between">
-      <span className="text-zinc-500">{label}</span>
-      <span className={danger ? 'font-mono font-bold text-red-600' : strong ? 'font-mono font-extrabold' : 'font-mono font-semibold'}>
-        {value}
-      </span>
-    </div>
-  );
-}
 
 function NewClientModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { dispatch } = useDemo();

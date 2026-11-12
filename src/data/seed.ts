@@ -274,8 +274,6 @@ export function createSeedData(now = Date.now()) {
     modality: 'Carga Completa (FTL)',
     weightTons: 24,
     palletsCount: 24,
-    offeredTruckIds: [],
-    rejectedTruckIds: [],
     kmDone: 0,
     createdAt: now - 2 * D,
     agreedTariffUsd: 2000,
@@ -309,7 +307,7 @@ export function createSeedData(now = Date.now()) {
       stage: 'delivered',
       kmDone: c.totalKm,
       createdAt: departedAt - 10 * H,
-      acceptedAt: departedAt - 6 * H,
+      assignedAt: departedAt - 6 * H,
       departedAt,
       arrivedAt: deliveredAt - 0.8 * H,
       deliveredAt,
@@ -332,11 +330,11 @@ export function createSeedData(now = Date.now()) {
     baseTrip({
       id: 'trip-2841', code: 'VIA-2841', clientId: 'cli-arcor', corridorId: 'corridor-libres-pilar', truckId: 'truck-104',
       cargoDescription: '28 pallets alimentos secos y confitería', weightTons: 25.4, palletsCount: 28,
-      stage: 'in_transit', kmDone: kmPilar, createdAt: now - 14 * H, acceptedAt: now - 11 * H, departedAt: now - 5 * H,
+      stage: 'in_transit', kmDone: kmPilar, createdAt: now - 14 * H, assignedAt: now - 11 * H, departedAt: now - 5 * H,
       agreedTariffUsd: 2450, budgetedFuelAndTollsUsd: 780, driverSettlementUsd: 420,
       flags: { departed: true, halfway: true },
       timeline: [
-        ev(now - 11 * H, 'Viaje aceptado', 'Rubén Gómez aceptó la carga desde la App del Chofer.', 'Chofer'),
+        ev(now - 11 * H, 'Unidad asignada', 'Operaciones asignó el viaje a Rubén Gómez (MD-104).', 'Admin'),
         ev(now - 5 * H, 'Salida de Base Paso de los Libres', 'Carga verificada y precintada (PREC-88412).', 'Chofer'),
         ev(now - 0.5 * H, 'Mitad de recorrido', 'Unidad en tránsito normal por RN 14.', 'GPS'),
       ],
@@ -344,7 +342,7 @@ export function createSeedData(now = Date.now()) {
     baseTrip({
       id: 'trip-2839', code: 'VIA-2839', clientId: 'cli-frigo', corridorId: 'corridor-cba-libres', truckId: 'truck-109',
       cargoDescription: 'Carga refrigerada controlada (-18 °C)', weightTons: 24, palletsCount: 26,
-      stage: 'in_transit', kmDone: kmCba, createdAt: now - 20 * H, acceptedAt: now - 16 * H, departedAt: now - 8 * H,
+      stage: 'in_transit', kmDone: kmCba, createdAt: now - 20 * H, assignedAt: now - 16 * H, departedAt: now - 8 * H,
       agreedTariffUsd: 2790, budgetedFuelAndTollsUsd: 890, driverSettlementUsd: 480,
       flags: { departed: true, halfway: true },
       timeline: [
@@ -355,7 +353,7 @@ export function createSeedData(now = Date.now()) {
     baseTrip({
       id: 'trip-2836', code: 'VIA-2836', clientId: 'cli-arcor', corridorId: 'corridor-rosario-libres', truckId: 'truck-112',
       cargoDescription: 'Consolidado bobinas e insumos industriales', modality: 'Carga Consolidada (LTL)', weightTons: 19.8, palletsCount: 20,
-      stage: 'nearing_destination', kmDone: kmRosario, createdAt: now - 18 * H, acceptedAt: now - 15 * H, departedAt: now - 7.5 * H,
+      stage: 'nearing_destination', kmDone: kmRosario, createdAt: now - 18 * H, assignedAt: now - 15 * H, departedAt: now - 7.5 * H,
       agreedTariffUsd: 1980, budgetedFuelAndTollsUsd: 620, driverSettlementUsd: 350,
       flags: { departed: true, halfway: true, near: true },
       timeline: [
@@ -367,7 +365,7 @@ export function createSeedData(now = Date.now()) {
     baseTrip({
       id: 'trip-2843', code: 'VIA-2843', clientId: 'cli-bodega', corridorId: 'corridor-mza-libres', truckId: 'truck-205',
       cargoDescription: '26 pallets vino embotellado para exportación', weightTons: 26.2, palletsCount: 26,
-      stage: 'in_transit', kmDone: kmMza, createdAt: now - 16 * H, acceptedAt: now - 13 * H, departedAt: now - 7 * H,
+      stage: 'in_transit', kmDone: kmMza, createdAt: now - 16 * H, assignedAt: now - 13 * H, departedAt: now - 7 * H,
       agreedTariffUsd: 3900, budgetedFuelAndTollsUsd: 1180, driverSettlementUsd: 2150,
       flags: { departed: true },
       timeline: [ev(now - 7 * H, 'Salida de Luján de Cuyo', 'Fletero FL-205 en ruta por RN 7.', 'Chofer')],
@@ -375,7 +373,7 @@ export function createSeedData(now = Date.now()) {
     baseTrip({
       id: 'trip-2844', code: 'VIA-2844', clientId: 'cli-gaucha', corridorId: 'corridor-libres-poa', truckId: 'truck-110',
       cargoDescription: '24 pallets yerba mate y alimentos (exportación AR → BR)', weightTons: 23.5, palletsCount: 24,
-      stage: 'in_transit', kmDone: kmPoa, createdAt: now - 9 * H, acceptedAt: now - 6 * H, departedAt: now - 0.4 * H,
+      stage: 'in_transit', kmDone: kmPoa, createdAt: now - 9 * H, assignedAt: now - 6 * H, departedAt: now - 0.4 * H,
       agreedTariffUsd: 2550, budgetedFuelAndTollsUsd: 720, driverSettlementUsd: 460,
       flags: { departed: true },
       timeline: [

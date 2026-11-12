@@ -5,7 +5,6 @@ import {
   CheckCircle2,
   Compass,
   Gauge,
-  Landmark,
   LayoutDashboard,
   LogOut,
   MessageCircle,
@@ -20,10 +19,9 @@ import { DemoUser, PanelId, SystemNotification } from './types';
 import { DEMO_USERS } from './data/seed';
 import { DemoProvider, useDemo } from './state/DemoContext';
 import { audienceFor, SIM_SPEEDS, SimSpeed } from './state/store';
-import { AdminPanel } from './components/AdminPanel';
+import { AdminPanel, AdminTab } from './components/AdminPanel';
 import { DriverAppPanel } from './components/DriverAppPanel';
 import { ClientPortalPanel } from './components/ClientPortalPanel';
-import { FinancePanel } from './components/FinancePanel';
 import { LoginScreen } from './components/LoginScreen';
 import { cx } from './components/ui';
 import { when } from './lib/format';
@@ -68,19 +66,21 @@ export function App() {
   );
 }
 
-const PANEL_META: Record<PanelId, { label: string; icon: React.ReactNode }> = {
+/** Paneles de la barra superior. Finanzas vive como pestaña dentro de Administración. */
+type NavPanel = Exclude<PanelId, 'finance'>;
+
+const PANEL_META: Record<NavPanel, { label: string; icon: React.ReactNode }> = {
   admin: { label: 'Administración', icon: <LayoutDashboard className="h-4 w-4" /> },
   driver: { label: 'App del Chofer', icon: <Smartphone className="h-4 w-4" /> },
   client: { label: 'Portal de Clientes', icon: <Building2 className="h-4 w-4" /> },
-  finance: { label: 'Finanzas', icon: <Landmark className="h-4 w-4" /> },
 };
 
-function allowedPanels(role: DemoUser['role']): PanelId[] {
+function allowedPanels(role: DemoUser['role']): NavPanel[] {
   switch (role) {
     case 'admin':
-      return ['admin', 'driver', 'client', 'finance'];
+      return ['admin', 'driver', 'client'];
     case 'finance':
-      return ['finance'];
+      return ['admin'];
     case 'driver':
       return ['driver'];
     case 'client':
@@ -91,7 +91,9 @@ function allowedPanels(role: DemoUser['role']): PanelId[] {
 function Shell({ user, onLogout }: { user: DemoUser; onLogout: () => void }) {
   const { state } = useDemo();
   const panels = allowedPanels(user.role);
-  const [active, setActive] = useState<PanelId>(panels[0]);
+  const [active, setActive] = useState<NavPanel>(panels[0]);
+  const [adminTab, setAdminTab] = useState<AdminTab>(user.role === 'finance' ? 'finance' : 'trips');
+  const [selectedTruckId, setSelectedTruckId] = useState('truck-104');
   const [previewTruckId, setPreviewTruckId] = useState('truck-104');
   const [previewClientId, setPreviewClientId] = useState('cli-arcor');
   const [showNotice, setShowNotice] = useState(() => {
@@ -116,16 +118,18 @@ function Shell({ user, onLogout }: { user: DemoUser; onLogout: () => void }) {
     [user.role, myAudience]
   );
 
-  const navigate = (p: PanelId) => {
-    if (panels.includes(p)) {
-      setActive(p);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+  /** Navega a un panel; 'finance' abre la pestaña Finanzas de Administración. */
+  const navigate = (p: PanelId, tab?: AdminTab) => {
+    const panel: NavPanel = p === 'finance' ? 'admin' : p;
+    if (!panels.includes(panel)) return;
+    setActive(panel);
+    if (p === 'finance') setAdminTab('finance');
+    else if (panel === 'admin' && tab) setAdminTab(tab);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const pendingOffers = state.trips.filter((t) => t.stage === 'pending_assignment' && t.offeredTruckIds.length > 0).length;
-  const readyToInvoice = state.trips.filter((t) => t.stage === 'delivered' && !t.invoice).length;
-  const badges: Partial<Record<PanelId, number>> = { driver: pendingOffers, finance: readyToInvoice };
+  const pendingTrips = state.trips.filter((t) => t.stage === 'pending_assignment').length;
+  const badges: Partial<Record<NavPanel, number>> = { admin: active === 'admin' ? 0 : pendingTrips };
 
 
   return (
@@ -218,6 +222,14 @@ function Shell({ user, onLogout }: { user: DemoUser; onLogout: () => void }) {
       <main className="mx-auto w-full max-w-[1400px] flex-1 px-4 py-6 sm:px-6">
         {active === 'admin' && (
           <AdminPanel
+            tab={adminTab}
+            onTabChange={(t) => {
+              setAdminTab(t);
+              window.scrollTo({ top: 0 });
+            }}
+            allowedTabs={user.role === 'finance' ? ['finance'] : undefined}
+            selectedTruckId={selectedTruckId}
+            setSelectedTruckId={setSelectedTruckId}
             onNavigatePanel={navigate}
             onPreviewDriver={setPreviewTruckId}
             onPreviewClient={setPreviewClientId}
@@ -228,7 +240,7 @@ function Shell({ user, onLogout }: { user: DemoUser; onLogout: () => void }) {
             truckId={user.role === 'driver' ? user.truckId! : previewTruckId}
             showTruckPicker={user.role === 'admin'}
             onChangeTruck={setPreviewTruckId}
-            onNavigatePanel={user.role === 'admin' ? navigate : undefined}
+            onNavigatePanel={user.role === 'admin' ? (p) => navigate(p, p === 'admin' ? 'tracking' : undefined) : undefined}
           />
         )}
         {active === 'client' && (
@@ -236,10 +248,9 @@ function Shell({ user, onLogout }: { user: DemoUser; onLogout: () => void }) {
             clientId={user.role === 'client' ? user.clientId! : previewClientId}
             showClientPicker={user.role === 'admin'}
             onChangeClient={setPreviewClientId}
-            onNavigatePanel={user.role === 'admin' ? navigate : undefined}
+            onNavigatePanel={user.role === 'admin' ? (p) => navigate(p, p === 'admin' ? 'trips' : undefined) : undefined}
           />
         )}
-        {active === 'finance' && <FinancePanel onNavigatePanel={user.role === 'admin' ? navigate : undefined} />}
       </main>
 
       <footer className="mt-6 border-t border-zinc-200 bg-white">
@@ -393,14 +404,15 @@ function ToastStack({ filter }: { filter: (n: SystemNotification) => boolean }) 
   );
 }
 
-const TOUR_STEPS: { p: PanelId; t: string }[] = [
-  { p: 'admin', t: 'Publicá la carga VIA-2845 a un chofer (Cargas y despacho)' },
-  { p: 'driver', t: 'Aceptala e iniciá el viaje desde su celular' },
-  { p: 'client', t: 'Seguila desde el Portal de Clientes' },
-  { p: 'finance', t: 'Facturá en 1 clic cuando llegue el remito' },
+const TOUR_STEPS: { p: PanelId; tab?: AdminTab; t: string }[] = [
+  { p: 'client', t: 'Pedí un viaje desde el Portal de Clientes' },
+  { p: 'admin', tab: 'trips', t: 'Asignale la unidad en Administración › Viajes' },
+  { p: 'driver', t: 'Iniciá el viaje desde el celular del chofer' },
+  { p: 'client', t: 'Seguí el % de cumplimiento desde el portal' },
+  { p: 'finance', t: 'Facturá en 1 clic en Administración › Finanzas' },
 ];
 
-function DemoControls({ onNavigate }: { onNavigate: (p: PanelId) => void }) {
+function DemoControls({ onNavigate }: { onNavigate: (p: PanelId, tab?: AdminTab) => void }) {
   const { state, dispatch } = useDemo();
   const [open, setOpen] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -430,7 +442,7 @@ function DemoControls({ onNavigate }: { onNavigate: (p: PanelId) => void }) {
                     <button
                       type="button"
                       onClick={() => {
-                        onNavigate(s.p);
+                        onNavigate(s.p, s.tab);
                         setOpen(false);
                       }}
                       className="flex w-full gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-zinc-50"

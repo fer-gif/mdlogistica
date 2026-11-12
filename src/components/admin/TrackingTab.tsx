@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { ArrowRight, ChevronDown, FileText, Fuel, MapPin, Phone, Search, Smartphone } from 'lucide-react';
 import { useDemo } from '../../state/DemoContext';
-import { driverNameOf, getClient, getCorridor, getDriver, tripEta, tripProgressPct } from '../../state/store';
+import { driverNameOf, getClient, getCorridor, getDriver, tripCompletionPct, tripEta } from '../../state/store';
 import { STAGE_META } from '../../data/seed';
 import { num, when } from '../../lib/format';
 import { printTripDocument, tripDocuments } from '../../lib/documents';
 import { FleetMap } from '../FleetMap';
-import { Button, Card, cx, ProgressBar, StageBadge, TruckStatusBadge } from '../ui';
+import { Button, Card, CompletionMeter, cx, StageBadge, TruckStatusBadge } from '../ui';
 import type { AdminTabProps } from '../AdminPanel';
 
 const STATUS_ORDER = { descargando: 0, en_aduana: 1, en_ruta: 2, en_carga: 3, disponible: 4 } as const;
@@ -42,7 +42,7 @@ export const TrackingTab: React.FC<AdminTabProps> = ({
   const client = trip ? getClient(state, trip.clientId) : undefined;
   const driver = getDriver(state, truck?.driverId);
   const eta = trip ? tripEta(trip, corridor) : null;
-  const pct = trip ? tripProgressPct(trip, corridor) : 0;
+  const pct = trip ? tripCompletionPct(trip, corridor) : 0;
 
   return (
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
@@ -88,7 +88,7 @@ export const TrackingTab: React.FC<AdminTabProps> = ({
                 <div className="text-sm font-bold">
                   {corridor.origin.split(',')[0]} → {corridor.destination.split(',')[0]}
                 </div>
-                <ProgressBar pct={pct} className="mt-3" />
+                <CompletionMeter pct={pct} className="mt-3" />
                 <div className="mt-3 grid grid-cols-3 gap-2 text-center">
                   <Fact label="Restan" value={`${num(Math.max(0, corridor.totalKm - trip.kmDone))} km`} />
                   <Fact label="Llega" value={trip.stage === 'unloading' ? 'En destino' : eta ? when(eta.ts) : '—'} />
@@ -159,8 +159,8 @@ export const TrackingTab: React.FC<AdminTabProps> = ({
                 <p className="text-xs text-zinc-500">
                   {truck.locationLabel} · {truck.driverAvailable ? 'Libre para cargar' : 'Chofer en descanso'}
                 </p>
-                <Button className="mt-3 w-full" onClick={() => goTab('dispatch')}>
-                  Asignarle una carga <ArrowRight className="h-3.5 w-3.5" />
+                <Button className="mt-3 w-full" onClick={() => goTab('trips')}>
+                  Asignarle un viaje <ArrowRight className="h-3.5 w-3.5" />
                 </Button>
               </div>
             )}
@@ -197,7 +197,7 @@ export const TrackingTab: React.FC<AdminTabProps> = ({
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-xs font-semibold">{driverNameOf(state, t)}</span>
                     <span className="block truncate text-[10px] text-zinc-500">
-                      {tr && c ? `${getClient(state, tr.clientId)?.name} · ${Math.round(tripProgressPct(tr, c))}%` : t.locationLabel}
+                      {tr && c ? `${getClient(state, tr.clientId)?.name} · ${tripCompletionPct(tr, c)}% cumplido` : t.locationLabel}
                     </span>
                   </span>
                   <TruckStatusBadge status={t.status} />

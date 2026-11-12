@@ -1,5 +1,5 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { ChevronDown, X } from 'lucide-react';
 import { Trip, TruckUnit } from '../types';
 import { STAGE_META, TRUCK_STATUS_META } from '../data/seed';
 
@@ -292,6 +292,164 @@ export function Tabs<T extends string>({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+/** Selector compacto de opciones (filtros y sub-secciones dentro de una pestaña). */
+export function Segmented<T extends string>({
+  value,
+  onChange,
+  items,
+  className,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  items: { id: T; label: string; icon?: React.ReactNode; badge?: number }[];
+  className?: string;
+}) {
+  return (
+    <div className={cx('inline-flex max-w-full gap-0.5 overflow-x-auto rounded-xl border border-zinc-200 bg-zinc-100 p-0.5', className)}>
+      {items.map((it) => {
+        const active = it.id === value;
+        return (
+          <button
+            key={it.id}
+            type="button"
+            onClick={() => onChange(it.id)}
+            className={cx(
+              'flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition',
+              active ? 'bg-white text-[#B71E23] shadow-sm' : 'text-zinc-500 hover:text-[#231F20]'
+            )}
+          >
+            {it.icon}
+            {it.label}
+            {it.badge ? (
+              <span className={cx('rounded-full px-1.5 text-[10px] font-extrabold', active ? 'bg-[#B71E23] text-white' : 'bg-zinc-300 text-zinc-700')}>
+                {it.badge}
+              </span>
+            ) : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Porcentaje de cumplimiento con barra. */
+export function CompletionMeter({ pct, className, size = 'md' }: { pct: number; className?: string; size?: 'sm' | 'md' }) {
+  const v = Math.max(0, Math.min(100, Math.round(pct)));
+  return (
+    <div className={cx('flex items-center gap-2', className)}>
+      <div className={cx('flex-1 overflow-hidden rounded-full bg-zinc-100', size === 'sm' ? 'h-1.5' : 'h-2')}>
+        <div
+          className={cx('h-full rounded-full transition-all duration-700', v >= 100 ? 'bg-emerald-500' : 'bg-gradient-to-r from-[#B71E23] to-[#F2851D]')}
+          style={{ width: `${Math.max(v > 0 ? 3 : 0, v)}%` }}
+        />
+      </div>
+      <span className={cx('shrink-0 text-right font-mono font-extrabold tabular-nums', size === 'sm' ? 'w-9 text-[11px]' : 'w-11 text-sm', v >= 100 && 'text-emerald-700')}>
+        {v}%
+      </span>
+    </div>
+  );
+}
+
+/** Fila compacta que se expande para mostrar el detalle. */
+export function ExpandableRow({
+  summary,
+  children,
+  open,
+  onToggle,
+  highlight,
+  className,
+}: {
+  summary: React.ReactNode;
+  children: React.ReactNode;
+  open: boolean;
+  onToggle: () => void;
+  highlight?: boolean;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cx(
+        'rounded-2xl border bg-white transition',
+        open ? 'border-[#B71E23]/40 shadow-sm' : highlight ? 'border-[#F2851D]/60' : 'border-zinc-200 hover:border-zinc-300',
+        className
+      )}
+    >
+      <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full items-center gap-3 px-3.5 py-3 text-left">
+        <div className="min-w-0 flex-1">{summary}</div>
+        <ChevronDown className={cx('h-4 w-4 shrink-0 text-zinc-400 transition', open && 'rotate-180 text-[#B71E23]')} />
+      </button>
+      {open && <div className="border-t border-zinc-100 px-3.5 pb-3.5 pt-3">{children}</div>}
+    </div>
+  );
+}
+
+/** Sección que arranca cerrada (o abierta) para no cargar la pantalla. */
+export function Collapsible({
+  title,
+  icon,
+  aside,
+  defaultOpen = false,
+  children,
+  className,
+}: {
+  title: React.ReactNode;
+  icon?: React.ReactNode;
+  aside?: React.ReactNode;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const [open, setOpen] = React.useState(defaultOpen);
+  return (
+    <Card className={cx('p-4', className)}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-3 text-left"
+      >
+        <span className="flex min-w-0 items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-zinc-500">
+          {icon}
+          <span className="truncate">{title}</span>
+        </span>
+        <span className="flex shrink-0 items-center gap-2 text-xs font-semibold text-zinc-500">
+          {aside}
+          <ChevronDown className={cx('h-4 w-4 transition', open && 'rotate-180 text-[#B71E23]')} />
+        </span>
+      </button>
+      {open && <div className="mt-3">{children}</div>}
+    </Card>
+  );
+}
+
+/** Limita una lista a los primeros N elementos con un botón para ver el resto. */
+export function useShowMore<T>(items: T[], limit: number) {
+  const [all, setAll] = React.useState(false);
+  const visible = all ? items : items.slice(0, limit);
+  const hidden = items.length - limit;
+  const toggle =
+    hidden > 0 ? (
+      <button
+        type="button"
+        onClick={() => setAll((v) => !v)}
+        className="mt-2 w-full rounded-xl border border-dashed border-zinc-300 py-2 text-xs font-bold text-zinc-600 transition hover:border-[#B71E23] hover:text-[#B71E23]"
+      >
+        {all ? 'Ver menos' : `Ver todos (${items.length})`}
+      </button>
+    ) : null;
+  return { visible, toggle };
+}
+
+/** Dato con etiqueta para el detalle expandido. */
+export function Detail({ label, value, className }: { label: string; value: React.ReactNode; className?: string }) {
+  return (
+    <div className={cx('min-w-0', className)}>
+      <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">{label}</div>
+      <div className="mt-0.5 truncate text-xs font-semibold text-[#231F20]">{value}</div>
     </div>
   );
 }

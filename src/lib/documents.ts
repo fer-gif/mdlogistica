@@ -97,7 +97,7 @@ export function printTripDocument(key: TripDocKey, ctx: DocContext) {
   if (!doc) return;
 
   const logoUrl = new URL(mdLogo, window.location.href).href;
-  const issued = trip.invoice?.issuedAt ?? trip.delivery?.signedAt ?? trip.acceptedAt ?? trip.createdAt;
+  const issued = trip.invoice?.issuedAt ?? trip.delivery?.signedAt ?? trip.assignedAt ?? trip.createdAt;
 
   const parties = `
     <div class="grid">

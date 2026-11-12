@@ -19,8 +19,8 @@ import {
   Wallet,
   XCircle,
 } from 'lucide-react';
-import { PanelId, RouteExpense, Trip } from '../types';
-import { useDemo } from '../state/DemoContext';
+import { RouteExpense, Trip } from '../../types';
+import { useDemo } from '../../state/DemoContext';
 import {
   DemoState,
   driverNameOf,
@@ -32,12 +32,12 @@ import {
   InvoiceStatus,
   tripFinancials,
   FLEET_COST_PER_KM_USD,
-} from '../state/store';
-import { ars, dateShort, downloadCsv, num, usd, when } from '../lib/format';
-import { printTripDocument } from '../lib/documents';
-import { Button, Card, cx, EmptyState, KpiCard, Modal, SectionHeader, StageBadge, Tabs } from './ui';
+} from '../../state/store';
+import { ars, dateShort, downloadCsv, num, usd, when } from '../../lib/format';
+import { printTripDocument } from '../../lib/documents';
+import { Button, Card, Collapsible, cx, EmptyState, Modal, Segmented, useShowMore } from '../ui';
 
-type FinanceTab = 'billing' | 'collections' | 'expenses' | 'profit';
+type FinanceSection = 'billing' | 'collections' | 'expenses' | 'profit';
 
 const DAY = 86400000;
 
@@ -87,9 +87,10 @@ function daysLabel(trip: Trip) {
   return `Vence en ${diff} día(s)`;
 }
 
-export const FinancePanel: React.FC<{ onNavigatePanel?: (p: PanelId) => void }> = ({ onNavigatePanel }) => {
+/** Finanzas como pestaña de Administración: facturación, cobros, gastos y rentabilidad. */
+export const FinanceTab: React.FC = () => {
   const { state, dispatch } = useDemo();
-  const [tab, setTab] = useState<FinanceTab>('billing');
+  const [tab, setTab] = useState<FinanceSection>('billing');
   const [issuingId, setIssuingId] = useState<string | null>(null);
   const [clientFilter, setClientFilter] = useState<string>('all');
   const [expenseFilter, setExpenseFilter] = useState<'pendientes' | 'todos'>('pendientes');
@@ -291,7 +292,6 @@ export const FinancePanel: React.FC<{ onNavigatePanel?: (p: PanelId) => void }> 
 
   const thCls = 'pb-2.5 pr-3 text-[10px] font-bold uppercase tracking-wider text-zinc-400 whitespace-nowrap';
   const tdCls = 'py-2.5 pr-3 align-middle';
-  const [showSettlements, setShowSettlements] = useState(false);
   const [rankBy, setRankBy] = useState<'truck' | 'client' | 'route'>('client');
   const ranking = rankBy === 'truck' ? byTruck : rankBy === 'client' ? byClient : byRoute;
   const maxNet = Math.max(1, ...ranking.map((r) => Math.abs(r.net)));
@@ -299,20 +299,12 @@ export const FinancePanel: React.FC<{ onNavigatePanel?: (p: PanelId) => void }> 
   const invoiceRows = [...collectionTrips].sort(
     (a, b) => statusOrder[invoiceStatus(a)] - statusOrder[invoiceStatus(b)] || b.invoice!.issuedAt - a.invoice!.issuedAt
   );
+  const invoiceList = useShowMore(invoiceRows, 6);
+  const expenseList = useShowMore(visibleExpenses, 6);
+  const profitList = useShowMore(profitTrips, 8);
 
   return (
     <div className="space-y-4">
-      {/* Encabezado */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#B71E23]">Panel de Finanzas</div>
-          <div className="text-xl font-extrabold leading-tight">Facturación, cobros y rentabilidad</div>
-        </div>
-        <Button variant="secondary" onClick={handleExport}>
-          <Download className="h-4 w-4" /> Exportar a Excel
-        </Button>
-      </div>
-
       {/* Lo que requiere acción */}
       <div className="grid grid-cols-1 divide-y divide-zinc-100 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm sm:grid-cols-3 sm:divide-x sm:divide-y-0">
         <ActionStat
@@ -338,15 +330,20 @@ export const FinancePanel: React.FC<{ onNavigatePanel?: (p: PanelId) => void }> 
         />
       </div>
 
-      <Tabs<FinanceTab>
-        value={tab}
-        onChange={setTab}
-        items={[
-          { id: 'billing', label: 'Facturación y cobros', icon: <FileBadge2 className="h-4 w-4" />, badge: readyTrips.length + overdue.length },
-          { id: 'expenses', label: 'Gastos y liquidaciones', icon: <Receipt className="h-4 w-4" />, badge: pendingExpenses.length },
-          { id: 'profit', label: 'Rentabilidad', icon: <PieChart className="h-4 w-4" /> },
-        ]}
-      />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Segmented<FinanceSection>
+          value={tab}
+          onChange={setTab}
+          items={[
+            { id: 'billing', label: 'Facturación y cobros', icon: <FileBadge2 className="h-3.5 w-3.5" />, badge: readyTrips.length + overdue.length },
+            { id: 'expenses', label: 'Gastos y liquidaciones', icon: <Receipt className="h-3.5 w-3.5" />, badge: pendingExpenses.length },
+            { id: 'profit', label: 'Rentabilidad', icon: <PieChart className="h-3.5 w-3.5" /> },
+          ]}
+        />
+        <Button variant="secondary" size="sm" onClick={handleExport} title="Exporta la sección visible a CSV (Excel)">
+          <Download className="h-3.5 w-3.5" /> Exportar a Excel
+        </Button>
+      </div>
 
       {/* ---------- FACTURACIÓN Y COBROS ---------- */}
       {tab === 'billing' && (
@@ -424,7 +421,7 @@ export const FinancePanel: React.FC<{ onNavigatePanel?: (p: PanelId) => void }> 
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-100">
-                    {invoiceRows.map((t) => {
+                    {invoiceList.visible.map((t) => {
                       const st = invoiceStatus(t);
                       return (
                         <tr key={t.id} className="hover:bg-zinc-50/70">
@@ -458,6 +455,7 @@ export const FinancePanel: React.FC<{ onNavigatePanel?: (p: PanelId) => void }> 
                     })}
                   </tbody>
                 </table>
+                {invoiceList.toggle}
               </div>
             )}
           </Card>
@@ -487,7 +485,7 @@ export const FinancePanel: React.FC<{ onNavigatePanel?: (p: PanelId) => void }> 
               <EmptyState icon={<CheckCircle2 className="h-8 w-8 text-emerald-500" />} title="Todo auditado" text="Los tickets nuevos de los choferes aparecen acá al instante." />
             ) : (
               <div className="divide-y divide-zinc-100">
-                {visibleExpenses.map((e) => (
+                {expenseList.visible.map((e) => (
                   <div key={e.id} className="flex flex-wrap items-center gap-3 py-2.5">
                     {e.photoDataUrl ? (
                       <button type="button" onClick={() => setPhoto(e)} className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-zinc-200" title="Ver foto del ticket">
@@ -535,23 +533,15 @@ export const FinancePanel: React.FC<{ onNavigatePanel?: (p: PanelId) => void }> 
                 ))}
               </div>
             )}
+            {expenseList.toggle}
           </Card>
 
-          <Card className="p-4">
-            <button
-              type="button"
-              onClick={() => setShowSettlements((v) => !v)}
-              className="flex w-full items-center justify-between text-xs font-extrabold uppercase tracking-wider text-zinc-500 hover:text-[#B71E23]"
-            >
-              <span className="flex items-center gap-2">
-                <Truck className="h-4 w-4" /> Liquidación a choferes y fleteros
-              </span>
-              <span className="normal-case tracking-normal">
-                Total a pagar {usd(settlements.reduce((s, x) => s + x.totalUsd, 0))} · {showSettlements ? 'Ocultar' : 'Ver detalle'}
-              </span>
-            </button>
-            {showSettlements && (
-              <div className="mt-3 overflow-x-auto">
+          <Collapsible
+            icon={<Truck className="h-4 w-4" />}
+            title="Liquidación a choferes y fleteros"
+            aside={<span className="font-mono font-bold text-[#231F20]">Total {usd(settlements.reduce((s, x) => s + x.totalUsd, 0))}</span>}
+          >
+              <div className="overflow-x-auto">
                 <table className="w-full min-w-[560px] text-left text-xs">
                   <thead>
                     <tr className="border-b border-zinc-200">
@@ -580,8 +570,7 @@ export const FinancePanel: React.FC<{ onNavigatePanel?: (p: PanelId) => void }> 
                   </tbody>
                 </table>
               </div>
-            )}
-          </Card>
+          </Collapsible>
         </div>
       )}
 
@@ -651,7 +640,7 @@ export const FinancePanel: React.FC<{ onNavigatePanel?: (p: PanelId) => void }> 
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100">
-                  {profitTrips.map(({ t, f, projected }) => (
+                  {profitList.visible.map(({ t, f, projected }) => (
                     <tr key={t.id} className={cx(projected && 'text-zinc-400')}>
                       <td className={tdCls}>
                         <span className="font-mono font-bold">{t.code}</span>
@@ -666,6 +655,7 @@ export const FinancePanel: React.FC<{ onNavigatePanel?: (p: PanelId) => void }> 
                 </tbody>
               </table>
             </div>
+            {profitList.toggle}
           </Card>
         </div>
       )}

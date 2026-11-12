@@ -4,8 +4,6 @@ import {
   Bell,
   Camera,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
   Clock,
   CloudOff,
   FileText,
@@ -127,15 +125,13 @@ export const DriverAppPanel: React.FC<DriverAppPanelProps> = ({
   const corridor = activeTrip ? getCorridor(state, activeTrip.corridorId) : undefined;
   const offline = state.isOffline;
 
-  const offers = state.trips.filter(
-    (t) => t.stage === 'pending_assignment' && truck && t.offeredTruckIds.includes(truck.id)
-  );
+  // El viaje lo asigna Operaciones: el chofer lo recibe ya cargado y solo tiene que iniciarlo.
+  const newAssignment = activeTrip?.stage === 'assigned';
   const myMessages = state.messages.filter((m) => truck && (m.truckIds.length === 0 || m.truckIds.includes(truck.id)));
   const unread = myMessages.filter((m) => truck && !m.readBy.includes(truck.id));
 
   const [tab, setTab] = useState<PhoneTab>(activeTrip ? 'viaje' : 'inicio');
   const [flash, setFlash] = useState<string | null>(null);
-  const [openOffer, setOpenOffer] = useState<string | null>(null);
 
   // Remito
   const [receiverName, setReceiverName] = useState('');
@@ -154,7 +150,6 @@ export const DriverAppPanel: React.FC<DriverAppPanelProps> = ({
   // Al cambiar de celular (vista previa) se vuelve al inicio.
   useEffect(() => {
     setTab(truck?.activeTripId ? 'viaje' : 'inicio');
-    setOpenOffer(null);
     setReceiverName('');
     setReceiverDni('');
     setRemitoPhoto(undefined);
@@ -275,138 +270,46 @@ export const DriverAppPanel: React.FC<DriverAppPanelProps> = ({
         </button>
       </div>
 
-      <div>
-        <div className="mb-2 flex items-center justify-between">
-          <span className="text-xs font-extrabold uppercase tracking-wider text-zinc-300">Cargas ofrecidas</span>
-          {offers.length > 0 && (
-            <span className="rounded-full bg-[#CE2329] px-2 py-0.5 text-[10px] font-extrabold">{offers.length} nueva(s)</span>
-          )}
-        </div>
-        {offers.length === 0 ? (
-          <div className={cx(cardCls, 'text-center text-xs text-zinc-400')}>
-            <Package className="mx-auto mb-1.5 h-6 w-6 text-zinc-500" />
-            No tenés cargas ofrecidas. Cuando Operaciones te publique una, te llega acá al instante.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {offers.map((trip) => {
-              const c = getCorridor(state, trip.corridorId);
-              const cl = getClient(state, trip.clientId);
-              const expanded = openOffer === trip.id;
-              const blockReason = offline
-                ? 'Requiere señal'
-                : truck.activeTripId
-                ? 'Terminá tu viaje en curso para aceptar otra carga'
-                : !truck.driverAvailable
-                ? 'Activá tu disponibilidad para aceptar'
-                : null;
-              return (
-                <div key={trip.id} className="rounded-2xl border-2 border-[#CE2329] bg-gradient-to-b from-[#B71E23]/25 to-[#1D2330] p-3.5 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="rounded-full bg-[#CE2329] px-2.5 py-0.5 text-[10px] font-extrabold uppercase">Nueva carga</span>
-                    <span className="font-mono text-xs font-bold text-zinc-300">{trip.code}</span>
-                  </div>
-                  <div>
-                    <div className="text-xs font-semibold text-[#F2851D]">{cl?.name}</div>
-                    <div className="mt-0.5 text-sm font-extrabold leading-snug">
-                      {c?.origin.split(',')[0]} → {c?.destination.split(',')[0]}
-                    </div>
-                    <div className="mt-1 text-[11px] text-zinc-300">
-                      {trip.cargoDescription} · {num(trip.weightTons, 1)} tn
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-1.5 text-center">
-                    <div className="rounded-lg bg-black/25 px-1.5 py-1.5">
-                      <div className="text-[9px] uppercase text-zinc-400">Distancia</div>
-                      <div className="font-mono text-xs font-bold">{c ? num(c.totalKm) : '—'} km</div>
-                    </div>
-                    <div className="rounded-lg bg-black/25 px-1.5 py-1.5">
-                      <div className="text-[9px] uppercase text-zinc-400">Tu pago</div>
-                      <div className="font-mono text-xs font-bold text-emerald-300">{usd(trip.driverSettlementUsd)}</div>
-                    </div>
-                    <div className="rounded-lg bg-black/25 px-1.5 py-1.5">
-                      <div className="text-[9px] uppercase text-zinc-400">Carga</div>
-                      <div className="text-xs font-bold">{trip.pickupDate ?? 'Inmediata'}</div>
-                    </div>
-                  </div>
-
-                  {expanded && c && (
-                    <div className="rounded-xl bg-black/25 p-2.5 text-[11px] text-zinc-300 space-y-1.5">
-                      <div>
-                        <span className="text-zinc-400">Recorrido: </span>
-                        {c.name} · ~{num(c.estimatedHours, 1)} h de manejo
-                        {c.international && <span className="ml-1 font-bold text-violet-300">· Cruce internacional</span>}
-                      </div>
-                      <div>
-                        <span className="text-zinc-400">Modalidad: </span>
-                        {trip.modality} · {trip.palletsCount} pallets
-                      </div>
-                      <div className="pt-1">
-                        <div className="mb-1 text-[10px] font-bold uppercase text-zinc-400">Puntos de control</div>
-                        <ol className="space-y-0.5">
-                          {c.checkpoints.map((cp) => (
-                            <li key={cp.label} className="flex justify-between gap-2">
-                              <span className="truncate">{cp.label}</span>
-                              <span className="font-mono text-zinc-500">km {cp.km}</span>
-                            </li>
-                          ))}
-                        </ol>
-                      </div>
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    disabled={Boolean(blockReason)}
-                    onClick={() => {
-                      dispatch({ type: 'ACCEPT_OFFER', tripId: trip.id, truckId: truck.id });
-                      setTab('viaje');
-                      setFlash('Viaje aceptado · dirigite al punto de carga');
-                    }}
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#B71E23] py-3.5 text-sm font-extrabold shadow-md transition hover:bg-[#96171B] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <CheckCircle2 className="h-4 w-4" /> Aceptar viaje
-                  </button>
-                  {blockReason && <div className="text-center text-[10px] font-semibold text-amber-300">{blockReason}</div>}
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      disabled={offline}
-                      onClick={() => dispatch({ type: 'REJECT_OFFER', tripId: trip.id, truckId: truck.id })}
-                      className="flex items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-white/5 py-2.5 text-xs font-bold text-zinc-200 hover:border-white/30 disabled:opacity-40"
-                    >
-                      <X className="h-3.5 w-3.5" /> Rechazar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setOpenOffer(expanded ? null : trip.id)}
-                      className="flex items-center justify-center gap-1.5 rounded-xl border border-white/15 bg-white/5 py-2.5 text-xs font-bold text-zinc-200 hover:border-white/30"
-                    >
-                      {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                      {expanded ? 'Ocultar' : 'Ver detalle'}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {activeTrip && (
+      {activeTrip && corridor ? (
         <button
           type="button"
           onClick={() => setTab('viaje')}
-          className={cx(cardCls, 'flex w-full items-center justify-between text-left hover:border-[#CE2329]')}
+          className={cx(
+            'w-full rounded-2xl p-3.5 text-left transition',
+            newAssignment
+              ? 'border-2 border-[#CE2329] bg-gradient-to-b from-[#B71E23]/25 to-[#1D2330] hover:brightness-110'
+              : cx(cardCls, 'hover:border-[#CE2329]')
+          )}
         >
-          <div className="min-w-0">
-            <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Viaje en curso</div>
-            <div className="truncate text-sm font-bold">
-              {activeTrip.code} · {STAGE_META[activeTrip.stage].short}
-            </div>
+          <div className="flex items-center justify-between gap-2">
+            <span
+              className={cx(
+                'rounded-full px-2.5 py-0.5 text-[10px] font-extrabold uppercase',
+                newAssignment ? 'bg-[#CE2329]' : 'bg-white/10 text-zinc-300'
+              )}
+            >
+              {newAssignment ? 'Viaje asignado' : 'Viaje en curso'}
+            </span>
+            <span className="font-mono text-xs font-bold text-zinc-300">{activeTrip.code}</span>
           </div>
-          <ArrowRight className="h-4 w-4 shrink-0 text-[#F2851D]" />
+          <div className="mt-2 text-xs font-semibold text-[#F2851D]">{getClient(state, activeTrip.clientId)?.name}</div>
+          <div className="mt-0.5 text-sm font-extrabold leading-snug">
+            {corridor.origin.split(',')[0]} → {corridor.destination.split(',')[0]}
+          </div>
+          <div className="mt-1 text-[11px] text-zinc-300">
+            {newAssignment
+              ? `Asignado por Operaciones · ${num(corridor.totalKm)} km · tu pago ${usd(activeTrip.driverSettlementUsd)}`
+              : `${STAGE_META[activeTrip.stage].short} · ${truck.locationLabel}`}
+          </div>
+          <div className="mt-2.5 flex items-center justify-end gap-1 text-xs font-extrabold text-[#F2851D]">
+            {newAssignment ? 'Ver viaje e iniciar' : 'Ver viaje'} <ArrowRight className="h-3.5 w-3.5" />
+          </div>
         </button>
+      ) : (
+        <div className={cx(cardCls, 'text-center text-xs text-zinc-400')}>
+          <Package className="mx-auto mb-1.5 h-6 w-6 text-zinc-500" />
+          No tenés viajes asignados. Cuando Operaciones te asigne uno, te aparece acá al instante.
+        </div>
       )}
 
       <div>
@@ -444,19 +347,11 @@ export const DriverAppPanel: React.FC<DriverAppPanelProps> = ({
       return (
         <div className={cx(cardCls, 'p-5 text-center space-y-2')}>
           <Truck className="mx-auto h-8 w-8 text-zinc-500" />
-          <div className="text-sm font-bold">Sin viaje en curso</div>
+          <div className="text-sm font-bold">Sin viaje asignado</div>
           <p className="text-xs text-zinc-400">
-            Estás en {truck.locationLabel}. Cuando aceptes una carga vas a ver acá el recorrido, la navegación y la documentación.
+            Estás en {truck.locationLabel}. Cuando Operaciones te asigne un viaje vas a ver acá el recorrido, la navegación y la
+            documentación.
           </p>
-          {offers.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setTab('inicio')}
-              className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-[#F2851D]"
-            >
-              Ver {offers.length} carga(s) ofrecida(s) <ArrowRight className="h-3.5 w-3.5" />
-            </button>
-          )}
         </div>
       );
     }
@@ -891,7 +786,7 @@ export const DriverAppPanel: React.FC<DriverAppPanelProps> = ({
   };
 
   const tabs: { id: PhoneTab; label: string; icon: React.ReactNode; badge?: number }[] = [
-    { id: 'inicio', label: 'Inicio', icon: <Home className="h-5 w-5" />, badge: offers.length + unread.length },
+    { id: 'inicio', label: 'Inicio', icon: <Home className="h-5 w-5" />, badge: (newAssignment ? 1 : 0) + unread.length },
     { id: 'viaje', label: 'Viaje', icon: <RouteIcon className="h-5 w-5" /> },
     { id: 'gastos', label: 'Gastos', icon: <Receipt className="h-5 w-5" /> },
     { id: 'perfil', label: 'Perfil', icon: <User className="h-5 w-5" /> },
@@ -911,11 +806,11 @@ export const DriverAppPanel: React.FC<DriverAppPanelProps> = ({
             className="min-w-0 flex-1 rounded-lg bg-zinc-100 px-2.5 py-1.5 text-xs font-extrabold text-[#231F20] focus:outline-none"
           >
             {state.trucks.map((t) => {
-              const hasOffer = state.trips.some((tr) => tr.stage === 'pending_assignment' && tr.offeredTruckIds.includes(t.id));
+              const justAssigned = state.trips.some((tr) => tr.id === t.activeTripId && tr.stage === 'assigned');
               return (
                 <option key={t.id} value={t.id}>
                   {driverNameOf(state, t)} · {t.code}
-                  {hasOffer ? ' · oferta nueva' : ''}
+                  {justAssigned ? ' · viaje asignado' : ''}
                 </option>
               );
             })}
@@ -1043,12 +938,13 @@ export const DriverAppPanel: React.FC<DriverAppPanelProps> = ({
             Botones grandes, una mano y funcionamiento sin señal.
           </h2>
           <p className="text-sm leading-relaxed text-zinc-600">
-            Cada acción del chofer en el celular (aceptar una carga, iniciar el viaje, confirmar la llegada, subir el remito o
-            rendir un ticket) impacta en el acto en el resto de la plataforma, sin llamadas ni mensajes de WhatsApp.
+            El chofer recibe el viaje que le asigna Operaciones y cada acción en el celular (iniciar el viaje, confirmar la
+            llegada, subir el remito o rendir un ticket) impacta en el acto en el resto de la plataforma, sin llamadas ni mensajes
+            de WhatsApp.
           </p>
           <div className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-3">
             {[
-              { title: 'Administración', text: 'Ve el avance GPS en el mapa, las aceptaciones y el remito digital al instante.', panel: 'admin' as PanelId, cta: 'Ir al mapa' },
+              { title: 'Administración', text: 'Asigna el viaje y ve el avance GPS en el mapa y el remito digital al instante.', panel: 'admin' as PanelId, cta: 'Ir al mapa' },
               { title: 'Cliente', text: 'Recibe avisos automáticos, sigue su carga y descarga la prueba de entrega.', panel: 'client' as PanelId, cta: 'Ver portal' },
               { title: 'Finanzas', text: 'El remito habilita facturar en 1 clic y los tickets se auditan contra el presupuesto.', panel: 'finance' as PanelId, cta: 'Ver finanzas' },
             ].map((b) => (

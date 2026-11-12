@@ -3,11 +3,11 @@ import { CheckCheck, Clock, Megaphone, Send, Zap } from 'lucide-react';
 import { useDemo } from '../../state/DemoContext';
 import { driverNameOf } from '../../state/store';
 import { when } from '../../lib/format';
-import { Button, Card, cx, Field, inputCls, SectionHeader } from '../ui';
+import { Button, Card, Collapsible, cx, Field, inputCls, SectionHeader, useShowMore } from '../ui';
 import type { AdminTabProps } from '../AdminPanel';
 
 const RULES = [
-  { id: 'r1', event: 'Viaje aceptado por el chofer', to: 'Cliente', channel: 'Portal + email' },
+  { id: 'r1', event: 'Unidad asignada al viaje', to: 'Chofer + Cliente', channel: 'App + Portal + email' },
   { id: 'r2', event: 'Ingreso / salida de aduana', to: 'Admin + Cliente', channel: 'Portal + push' },
   { id: 'r3', event: 'Unidad a menos de 60 km de destino', to: 'Cliente', channel: 'Portal + WhatsApp' },
   { id: 'r4', event: 'Arribo a destino y remito conformado', to: 'Admin + Cliente + Finanzas', channel: 'Panel + email' },
@@ -29,6 +29,9 @@ export const CommsTab: React.FC<AdminTabProps> = () => {
     [state.notifications]
   );
   const log = state.notifications.filter((n) => channelFilter === 'todos' || n.channelBadge.startsWith(channelFilter));
+  const logList = useShowMore(log, 8);
+  const sentList = useShowMore(state.messages, 3);
+  const activeRules = Object.values(rules).filter(Boolean).length;
 
   const send = (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,13 +101,13 @@ export const CommsTab: React.FC<AdminTabProps> = () => {
           </form>
         </Card>
 
-        <Card className="p-5">
-          <SectionHeader
-            icon={<Zap className="h-4 w-4 text-[#F2851D]" />}
-            title="Avisos automáticos"
-            subtitle="Qué avisa el sistema, a quién y por qué canal."
-          />
-          <div className="mt-3 space-y-2">
+        <Collapsible
+          icon={<Zap className="h-4 w-4 text-[#F2851D]" />}
+          title="Avisos automáticos"
+          aside={`${activeRules} de ${RULES.length} activos`}
+        >
+          <p className="mb-2 text-[11px] text-zinc-500">Qué avisa el sistema, a quién y por qué canal.</p>
+          <div className="space-y-2">
             {RULES.map((r) => (
               <div key={r.id} className="flex items-center justify-between gap-3 rounded-xl border border-zinc-200 px-3 py-2.5">
                 <div className="min-w-0 text-xs">
@@ -125,14 +128,14 @@ export const CommsTab: React.FC<AdminTabProps> = () => {
               </div>
             ))}
           </div>
-        </Card>
+        </Collapsible>
       </div>
 
       <div className="space-y-4 lg:col-span-7">
         <Card className="p-5">
           <div className="mb-3 text-xs font-extrabold uppercase tracking-wider text-zinc-500">Comunicados enviados</div>
           <div className="space-y-2">
-            {state.messages.map((m) => {
+            {sentList.visible.map((m) => {
               const recipients = m.truckIds.length ? m.truckIds : state.trucks.map((t) => t.id);
               const read = recipients.filter((id) => m.readBy.includes(id)).length;
               return (
@@ -150,6 +153,7 @@ export const CommsTab: React.FC<AdminTabProps> = () => {
               );
             })}
           </div>
+          {sentList.toggle}
         </Card>
 
         <Card className="p-5">
@@ -164,8 +168,8 @@ export const CommsTab: React.FC<AdminTabProps> = () => {
               ))}
             </select>
           </div>
-          <div className="max-h-[480px] divide-y divide-zinc-100 overflow-y-auto">
-            {log.map((n) => (
+          <div className="divide-y divide-zinc-100">
+            {logList.visible.map((n) => (
               <div key={n.id} className="py-2.5 text-xs">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-bold">{n.title}</span>
@@ -178,6 +182,7 @@ export const CommsTab: React.FC<AdminTabProps> = () => {
               </div>
             ))}
           </div>
+          {logList.toggle}
         </Card>
       </div>
     </div>

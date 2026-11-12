@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { AlertTriangle, CheckCircle2, Star, Truck, UserPlus, Users, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, MapPin, Star, Truck, UserPlus, Users, XCircle } from 'lucide-react';
 import { DriverProfile, TruckUnit } from '../../types';
 import { useDemo } from '../../state/DemoContext';
 import { driverNameOf, NewTruckInput } from '../../state/store';
 import { expiryState, num } from '../../lib/format';
-import { Button, Card, cx, Field, inputCls, Modal, SectionHeader, TruckStatusBadge } from '../ui';
+import { Button, cx, Detail, ExpandableRow, Field, inputCls, Modal, Segmented, TruckStatusBadge } from '../ui';
 import type { AdminTabProps } from '../AdminPanel';
 
 function ExpiryPill({ label, value }: { label: string; value: string }) {
@@ -21,132 +21,168 @@ function ExpiryPill({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** Resumen de vencimientos en una sola etiqueta: lo peor de la lista manda. */
+function DocsSummary({ values }: { values: string[] }) {
+  const states = values.map(expiryState);
+  const expired = states.filter((s) => s === 'expired').length;
+  const soon = states.filter((s) => s === 'soon').length;
+  if (expired)
+    return (
+      <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-700">
+        <XCircle className="h-3 w-3" /> {expired} vencido{expired > 1 ? 's' : ''}
+      </span>
+    );
+  if (soon)
+    return (
+      <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+        <AlertTriangle className="h-3 w-3" /> {soon} por vencer
+      </span>
+    );
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+      <CheckCircle2 className="h-3 w-3" /> Papeles al día
+    </span>
+  );
+}
+
+type FleetView = 'trucks' | 'drivers';
+
 export const FleetTab: React.FC<AdminTabProps> = ({ setSelectedTruckId, goTab }) => {
   const { state } = useDemo();
   const [truckModal, setTruckModal] = useState(false);
   const [driverModal, setDriverModal] = useState(false);
+  const [view, setView] = useState<FleetView>('trucks');
+  const [openId, setOpenId] = useState<string | null>(null);
+  const toggle = (id: string) => setOpenId((cur) => (cur === id ? null : id));
+
+  const truckAlerts = state.trucks.filter((t) => expiryState(t.vtvExpiry) !== 'ok' || expiryState(t.insuranceExpiry) !== 'ok').length;
+  const driverAlerts = state.drivers.filter((d) => expiryState(d.licenseExpiry) !== 'ok').length;
+  const deliveredBy = (truckId: string) => state.trips.filter((x) => x.truckId === truckId && x.stage === 'delivered').length;
 
   return (
-    <div className="space-y-5">
-      <Card className="p-5">
-        <SectionHeader
-          title="Gestión de flota"
-          subtitle="Unidades propias y fleteros con su documentación, vencimientos e historial. Todo cambio impacta al instante en el mapa y en despacho."
-          actions={
-            <>
-              <Button variant="secondary" onClick={() => setDriverModal(true)}>
-                <UserPlus className="h-4 w-4 text-[#F2851D]" /> Nuevo chofer
-              </Button>
-              <Button onClick={() => setTruckModal(true)}>
-                <Truck className="h-4 w-4" /> Nueva unidad
-              </Button>
-            </>
-          }
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Segmented<FleetView>
+          value={view}
+          onChange={(v) => {
+            setView(v);
+            setOpenId(null);
+          }}
+          items={[
+            { id: 'trucks', label: `Unidades (${state.trucks.length})`, icon: <Truck className="h-3.5 w-3.5" />, badge: truckAlerts },
+            { id: 'drivers', label: `Choferes (${state.drivers.length})`, icon: <Users className="h-3.5 w-3.5" />, badge: driverAlerts },
+          ]}
         />
-      </Card>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={() => setDriverModal(true)}>
+            <UserPlus className="h-4 w-4 text-[#F2851D]" /> Nuevo chofer
+          </Button>
+          <Button onClick={() => setTruckModal(true)}>
+            <Truck className="h-4 w-4" /> Nueva unidad
+          </Button>
+        </div>
+      </div>
 
-      <Card className="p-5">
-        <h4 className="mb-3 flex items-center gap-2 text-sm font-extrabold">
-          <Truck className="h-4 w-4 text-[#B71E23]" /> Unidades ({state.trucks.length})
-        </h4>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[920px] text-left text-xs">
-            <thead>
-              <tr className="border-b border-zinc-200 text-[11px] uppercase tracking-wider text-zinc-400">
-                <th className="pb-2.5 font-bold">Unidad</th>
-                <th className="pb-2.5 font-bold">Tractor / Semi</th>
-                <th className="pb-2.5 font-bold">Equipo</th>
-                <th className="pb-2.5 font-bold">Chofer</th>
-                <th className="pb-2.5 font-bold">Estado y ubicación</th>
-                <th className="pb-2.5 font-bold">Odómetro</th>
-                <th className="pb-2.5 font-bold">Documentación</th>
-                <th className="pb-2.5 font-bold">Viajes</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {state.trucks.map((t) => {
-                const done = state.trips.filter((x) => x.truckId === t.id && x.stage === 'delivered').length;
-                return (
-                  <tr
-                    key={t.id}
-                    className="cursor-pointer hover:bg-zinc-50"
+      {view === 'trucks' && (
+        <div className="space-y-2">
+          {state.trucks.map((t) => (
+            <ExpandableRow
+              key={t.id}
+              open={openId === t.id}
+              onToggle={() => toggle(t.id)}
+              summary={
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                  <div className="w-44 min-w-0">
+                    <div className="font-mono text-xs font-bold text-[#B71E23]">{t.code}</div>
+                    <div className="truncate text-[11px] text-zinc-500">
+                      {t.brand} {t.model}
+                    </div>
+                  </div>
+                  <div className="w-36 min-w-0 truncate text-xs font-bold">{driverNameOf(state, t)}</div>
+                  <div className="min-w-0 flex-1">
+                    <TruckStatusBadge status={t.status} />
+                    <div className="mt-0.5 truncate text-[11px] text-zinc-500">{t.locationLabel}</div>
+                  </div>
+                  <DocsSummary values={[t.vtvExpiry, t.insuranceExpiry]} />
+                </div>
+              }
+            >
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <Detail label="Patentes" value={`${t.tractorPlate} / ${t.trailerPlate}`} />
+                  <Detail label="Equipo" value={`${t.trailerType} · ${t.maxCapacityTons} tn`} />
+                  <Detail label="Modelo" value={`${t.brand} ${t.model} (${t.year})`} />
+                  <Detail label="Vínculo" value={t.fleetType} />
+                  <Detail label="Odómetro" value={`${num(t.odometerKm)} km`} />
+                  <Detail label="Combustible" value={`${Math.round(t.fuelPct)}%`} />
+                  <Detail label="Viajes entregados" value={deliveredBy(t.id)} />
+                  <Detail label="Chofer" value={t.driverAvailable ? 'Disponible' : 'En descanso'} />
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-zinc-100 pt-3">
+                  <div className="flex flex-wrap gap-1.5">
+                    <ExpiryPill label="VTV/RTO" value={t.vtvExpiry} />
+                    <ExpiryPill label="Seguro" value={t.insuranceExpiry} />
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="secondary"
                     onClick={() => {
                       setSelectedTruckId(t.id);
                       goTab('tracking');
                     }}
-                    title="Ver en el mapa"
                   >
-                    <td className="py-3">
-                      <div className="font-mono font-bold text-[#B71E23]">{t.code}</div>
-                      <div className="text-[10px] text-zinc-400">{t.fleetType}</div>
-                    </td>
-                    <td className="py-3">
-                      <div className="font-bold">
-                        {t.brand} {t.model} <span className="font-normal text-zinc-400">({t.year})</span>
-                      </div>
-                      <div className="font-mono text-[11px] text-zinc-500">
-                        {t.tractorPlate} / {t.trailerPlate}
-                      </div>
-                    </td>
-                    <td className="py-3">
-                      {t.trailerType} · <span className="font-mono">{t.maxCapacityTons} tn</span>
-                    </td>
-                    <td className="py-3 font-bold">{driverNameOf(state, t)}</td>
-                    <td className="py-3">
-                      <TruckStatusBadge status={t.status} />
-                      <div className="mt-0.5 max-w-[200px] truncate text-[11px] text-zinc-500">{t.locationLabel}</div>
-                    </td>
-                    <td className="py-3 font-mono">{num(t.odometerKm)} km</td>
-                    <td className="space-y-1 py-3">
-                      <div>
-                        <ExpiryPill label="VTV/RTO" value={t.vtvExpiry} />
-                      </div>
-                      <div>
-                        <ExpiryPill label="Seguro" value={t.insuranceExpiry} />
-                      </div>
-                    </td>
-                    <td className="py-3 font-mono font-bold">{done}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      <Card className="p-5">
-        <h4 className="mb-3 flex items-center gap-2 text-sm font-extrabold">
-          <Users className="h-4 w-4 text-[#F2851D]" /> Choferes ({state.drivers.length})
-        </h4>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {state.drivers.map((d) => {
-            const truck = state.trucks.find((t) => t.driverId === d.id);
-            const trips = state.trips.filter((t) => t.stage === 'delivered' && state.trucks.find((x) => x.id === t.truckId)?.driverId === d.id);
-            return (
-              <div key={d.id} className="space-y-2 rounded-xl border border-zinc-200 bg-[#F5F6F8]/60 p-3.5 text-xs">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-extrabold">{d.name}</span>
-                  <span className="rounded-full bg-[#231F20] px-2 py-0.5 text-[10px] font-bold text-white">{d.employmentType}</span>
-                </div>
-                <div className="font-mono text-[11px] text-zinc-500">
-                  DNI {d.dni} · {d.phone}
-                </div>
-                <div className="text-[11px] font-semibold text-zinc-700">{d.licenseCategory}</div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <ExpiryPill label="Licencia" value={d.licenseExpiry} />
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600">
-                    <Star className="h-3 w-3 fill-current" /> {d.rating.toFixed(1)}
-                  </span>
-                </div>
-                <div className="flex justify-between border-t border-zinc-200 pt-2 text-[11px] text-zinc-500">
-                  <span>{truck ? `Unidad ${truck.code}` : 'Sin unidad asignada'}</span>
-                  <span>{trips.length} viaje(s) entregados</span>
+                    <MapPin className="h-3.5 w-3.5" /> Ver en mapa
+                  </Button>
                 </div>
               </div>
+            </ExpandableRow>
+          ))}
+        </div>
+      )}
+
+      {view === 'drivers' && (
+        <div className="space-y-2">
+          {state.drivers.map((d) => {
+            const truck = state.trucks.find((t) => t.driverId === d.id);
+            return (
+              <ExpandableRow
+                key={d.id}
+                open={openId === d.id}
+                onToggle={() => toggle(d.id)}
+                summary={
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                    <div className="w-44 min-w-0">
+                      <div className="truncate text-xs font-extrabold">{d.name}</div>
+                      <div className="text-[11px] text-zinc-500">{d.employmentType}</div>
+                    </div>
+                    <div className="min-w-0 flex-1 text-[11px] text-zinc-600">
+                      {truck ? (
+                        <>
+                          <span className="font-mono font-bold">{truck.code}</span> · {truck.locationLabel}
+                        </>
+                      ) : (
+                        'Sin unidad asignada'
+                      )}
+                    </div>
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600">
+                      <Star className="h-3 w-3 fill-current" /> {d.rating.toFixed(1)}
+                    </span>
+                    <ExpiryPill label="Licencia" value={d.licenseExpiry} />
+                  </div>
+                }
+              >
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <Detail label="DNI" value={d.dni} />
+                  <Detail label="Teléfono" value={d.phone} />
+                  <Detail label="Habilitación" value={d.licenseCategory} className="col-span-2" />
+                  <Detail label="Viajes entregados" value={truck ? deliveredBy(truck.id) : 0} />
+                  <Detail label="Estado" value={truck ? (truck.driverAvailable ? 'Disponible' : 'En descanso') : '—'} />
+                </div>
+              </ExpandableRow>
             );
           })}
         </div>
-      </Card>
+      )}
 
       <NewTruckModal open={truckModal} onClose={() => setTruckModal(false)} />
       <NewDriverModal open={driverModal} onClose={() => setDriverModal(false)} />

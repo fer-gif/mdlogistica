@@ -23,7 +23,10 @@ import {
 import { haversineKm, locationLabelAtKm, positionAtKm } from '../lib/geo';
 import { etaFromKm, USD_ARS_RATE, uid, when } from '../lib/format';
 
-export const STORAGE_KEY = 'md_logistica_demo_v5';
+// Al cambiar la forma del estado se suben juntos la clave y STATE_VERSION, así los navegadores
+// con datos viejos arrancan desde el estado inicial.
+export const STORAGE_KEY = 'md_logistica_demo_v6';
+const STATE_VERSION = 6;
 export const TICK_MS = 1500;
 
 /** Segundos simulados por segundo real según velocidad elegida. */
@@ -38,7 +41,7 @@ const CUSTOMS_HOURS = 2.5;
 const NEAR_KM = 60;
 
 export interface DemoState {
-  version: 4;
+  version: typeof STATE_VERSION;
   clients: ClientAccount[];
   drivers: DriverProfile[];
   trucks: TruckUnit[];
@@ -57,7 +60,7 @@ export interface DemoState {
 export function createInitialState(): DemoState {
   const seed = createSeedData();
   return {
-    version: 4,
+    version: STATE_VERSION,
     clients: INITIAL_CLIENTS,
     drivers: INITIAL_DRIVERS,
     trucks: seed.trucks,
@@ -79,7 +82,7 @@ export function loadState(): DemoState {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as DemoState;
-      if (parsed && parsed.version === 4 && Array.isArray(parsed.trips)) return parsed;
+      if (parsed && parsed.version === STATE_VERSION && Array.isArray(parsed.trips)) return parsed;
     }
   } catch {
     // almacenamiento no disponible: se usa el estado inicial
@@ -107,6 +110,8 @@ export type NewTripInput = {
   agreedTariffUsd: number;
   requestedByClient?: boolean;
   pickupDate?: string;
+  /** Si viene, el viaje se crea ya asignado a esa unidad. */
+  truckId?: string;
 };
 
 export type Action =
@@ -115,10 +120,8 @@ export type Action =
   | { type: 'RESET' }
   | { type: 'CREATE_TRIP'; input: NewTripInput }
   | { type: 'CANCEL_TRIP'; tripId: string }
-  | { type: 'OFFER_TRIP'; tripId: string; truckIds: string[] }
-  | { type: 'WITHDRAW_OFFER'; tripId: string }
-  | { type: 'ACCEPT_OFFER'; tripId: string; truckId: string }
-  | { type: 'REJECT_OFFER'; tripId: string; truckId: string }
+  | { type: 'ASSIGN_TRIP'; tripId: string; truckId: string }
+  | { type: 'UNASSIGN_TRIP'; tripId: string }
   | { type: 'START_TRIP'; tripId: string }
   | { type: 'ARRIVE'; tripId: string }
   | { type: 'UPLOAD_REMITO'; tripId: string; receiverName: string; receiverDni: string; photoDataUrl?: string }
@@ -173,6 +176,49 @@ export const driverNameOf = (s: DemoState, truck?: TruckUnit) =>
 export function tripProgressPct(trip: Trip, corridor?: RouteCorridor) {
   if (!corridor || corridor.totalKm <= 0) return 0;
   return Math.max(0, Math.min(100, (trip.kmDone / corridor.totalKm) * 100));
+}
+
+/**
+ * Cumplimiento del viaje (0–100). A diferencia del avance en km, contempla todo el ciclo:
+ * sin asignar 0 % · en carga 5 % · en ruta 10–90 % según km · descargando 95 % · entregado 100 %.
+ */
+export function tripCompletionPct(trip: Trip, corridor?: RouteCorridor) {
+  switch (trip.stage) {
+    case 'pending_assignment':
+      return 0;
+    case 'assigned':
+      return 5;
+    case 'unloading':
+      return 95;
+    case 'delivered':
+      return 100;
+    default:
+      return Math.round(10 + 0.8 * tripProgressPct(trip, corridor));
+  }
+}
+
+export interface AssignmentCandidate {
+  truck: TruckUnit;
+  /** Distancia vial estimada al origen del viaje. */
+  km: number;
+  /** Motivo por el que no puede asignarse (vacío si está disponible). */
+  reason: string;
+}
+
+/** Unidades para asignar un viaje, ordenadas: primero las disponibles y más cercanas al origen. */
+export function assignmentCandidates(state: DemoState, corridorId: string, weightTons: number): AssignmentCandidate[] {
+  const corridor = getCorridor(state, corridorId);
+  if (!corridor) return [];
+  const o = positionAtKm(corridor, 0);
+  return nearestTrucksTo(state, o.lat, o.lng)
+    .map(({ truck, km }) => {
+      let reason = '';
+      if (truck.activeTripId) reason = 'En viaje';
+      else if (!truck.driverAvailable) reason = 'Chofer en descanso';
+      else if (truck.maxCapacityTons < weightTons) reason = `Capacidad ${truck.maxCapacityTons} tn`;
+      return { truck, km, reason };
+    })
+    .sort((a, b) => Number(Boolean(a.reason)) - Number(Boolean(b.reason)) || a.km - b.km);
 }
 
 export function tripEta(trip: Trip, corridor?: RouteCorridor) {
@@ -436,8 +482,6 @@ export function reducer(state: DemoState, action: Action): DemoState {
         weightTons: input.weightTons,
         palletsCount: input.palletsCount,
         corridorId: corridor.id,
-        offeredTruckIds: [],
-        rejectedTruckIds: [],
         stage: 'pending_assignment',
         kmDone: 0,
         createdAt: Date.now(),
@@ -476,9 +520,9 @@ export function reducer(state: DemoState, action: Action): DemoState {
             detail: `${client.name} · ${corridor.origin} → ${corridor.destination} (${corridor.totalKm} km).`,
             channelBadge: 'Operaciones',
             audience: ['admin', `client:${client.id}`],
-            toast: true,
+            toast: !input.truckId,
           });
-      return s;
+      return input.truckId ? reducer(s, { type: 'ASSIGN_TRIP', tripId: trip.id, truckId: input.truckId }) : s;
     }
 
     case 'CANCEL_TRIP': {
@@ -488,39 +532,14 @@ export function reducer(state: DemoState, action: Action): DemoState {
       return notify(s, {
         panelOrigin: 'admin',
         title: `Carga ${trip.code} anulada`,
-        detail: 'Se retiró de despacho y de las ofertas a choferes.',
+        detail: 'Se retiró de la lista de viajes por asignar.',
         channelBadge: 'Operaciones',
         audience: ['admin', clientAud(trip)],
         toast: true,
       });
     }
 
-    case 'OFFER_TRIP': {
-      const trip = state.trips.find((t) => t.id === action.tripId);
-      if (!trip || trip.stage !== 'pending_assignment' || action.truckIds.length === 0) return state;
-      const names = action.truckIds
-        .map((id) => driverNameOf(state, getTruck(state, id)))
-        .join(', ');
-      let s = patchTrip(state, trip.id, (t) => ({
-        ...t,
-        offeredTruckIds: Array.from(new Set([...t.offeredTruckIds, ...action.truckIds])),
-        timeline: [...t.timeline, event('Carga publicada a choferes', names, 'Admin')],
-      }));
-      s = notify(s, {
-        panelOrigin: 'admin',
-        title: `${trip.code} publicada a ${action.truckIds.length} chofer(es)`,
-        detail: `Notificación push enviada a: ${names}.`,
-        channelBadge: 'Admin → App del Chofer',
-        audience: ['admin', ...action.truckIds.map((id) => `truck:${id}` as const)],
-        toast: true,
-      });
-      return s;
-    }
-
-    case 'WITHDRAW_OFFER':
-      return patchTrip(state, action.tripId, (t) => ({ ...t, offeredTruckIds: [] }));
-
-    case 'ACCEPT_OFFER': {
+    case 'ASSIGN_TRIP': {
       const trip = state.trips.find((t) => t.id === action.tripId);
       const truck = getTruck(state, action.truckId);
       if (!trip || !truck || trip.stage !== 'pending_assignment' || truck.activeTripId) return state;
@@ -531,12 +550,11 @@ export function reducer(state: DemoState, action: Action): DemoState {
       let s = patchTrip(state, trip.id, (t) => ({
         ...t,
         truckId: truck.id,
-        offeredTruckIds: [],
         stage: 'assigned',
-        acceptedAt: Date.now(),
+        assignedAt: Date.now(),
         timeline: [
           ...t.timeline,
-          event('Viaje aceptado', `${driver} (${truck.code}) aceptó la carga. Se dirige a cargar en ${corridor.origin.split(',')[0]}.`, 'Chofer'),
+          event('Unidad asignada', `${truck.code} · ${driver}. Se dirige a cargar en ${corridor.origin.split(',')[0]}.`, 'Admin'),
         ],
       }));
       s = patchTruck(s, truck.id, (t) => ({
@@ -551,34 +569,39 @@ export function reducer(state: DemoState, action: Action): DemoState {
         cargoSeal: `PREC-${Math.floor(10000 + Math.random() * 89999)}`,
       }));
       s = notify(s, {
-        panelOrigin: 'driver',
-        title: `${driver} aceptó ${trip.code}`,
-        detail: `${truck.code} asignado. Hoja de ruta${corridor.international ? ', CRT y MIC/DTA' : ''} generados automáticamente.`,
-        channelBadge: 'App Chofer → Admin & Cliente',
+        panelOrigin: 'admin',
+        title: `${trip.code} asignado a ${truck.code} (${driver})`,
+        detail: `El viaje ya figura en la App del Chofer. Hoja de ruta${corridor.international ? ', CRT y MIC/DTA' : ''} generados automáticamente.`,
+        channelBadge: 'Despacho → Chofer & Cliente',
         audience: ['admin', clientAud(trip), `truck:${truck.id}`],
         toast: true,
       });
       return s;
     }
 
-    case 'REJECT_OFFER': {
+    case 'UNASSIGN_TRIP': {
       const trip = state.trips.find((t) => t.id === action.tripId);
-      const truck = getTruck(state, action.truckId);
-      if (!trip || !truck) return state;
+      if (!trip || trip.stage !== 'assigned') return state;
+      const truck = getTruck(state, trip.truckId);
       let s = patchTrip(state, trip.id, (t) => ({
         ...t,
-        offeredTruckIds: t.offeredTruckIds.filter((id) => id !== truck.id),
-        rejectedTruckIds: Array.from(new Set([...t.rejectedTruckIds, truck.id])),
+        truckId: undefined,
+        stage: 'pending_assignment',
+        assignedAt: undefined,
+        timeline: [
+          ...t.timeline,
+          event('Asignación quitada', `${truck?.code ?? 'La unidad'} quedó liberada. El viaje vuelve a estar por asignar.`, 'Admin'),
+        ],
       }));
-      s = notify(s, {
-        panelOrigin: 'driver',
-        title: `${driverNameOf(state, truck)} rechazó ${trip.code}`,
-        detail: 'La carga sigue disponible en Despacho para ofrecerla a otra unidad.',
-        channelBadge: 'App Chofer → Despacho',
-        audience: ['admin'],
+      s = patchTruck(s, truck?.id, (t) => ({ ...t, activeTripId: undefined, status: 'disponible', cargoSeal: 'Sin carga' }));
+      return notify(s, {
+        panelOrigin: 'admin',
+        title: `${trip.code} sin unidad asignada`,
+        detail: `${truck?.code ?? ''} liberado. El viaje volvió a la lista de viajes por asignar.`,
+        channelBadge: 'Despacho → Chofer',
+        audience: ['admin', ...(truck ? [`truck:${truck.id}` as const] : [])],
         toast: true,
       });
-      return s;
     }
 
     case 'START_TRIP': {

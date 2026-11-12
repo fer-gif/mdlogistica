@@ -14,7 +14,7 @@ export interface DemoUser {
 }
 
 /**
- * Ciclo de vida de un viaje:
+ * Ciclo de vida de un viaje (la unidad la asigna directamente Administración):
  * pending_assignment → assigned (en carga en origen) → in_transit → [customs] →
  * nearing_destination → unloading (en destino) → delivered (remito conformado)
  */
@@ -157,16 +157,14 @@ export interface Trip {
   weightTons: number;
   palletsCount: number;
   corridorId: string;
+  /** Unidad asignada directamente por Administración. */
   truckId?: string;
-  /** Unidades a las que se les publicó la carga (pueden ser varias). */
-  offeredTruckIds: string[];
-  rejectedTruckIds: string[];
   stage: TripStage;
   kmDone: number;
   createdAt: number;
   requestedByClient?: boolean;
   pickupDate?: string;
-  acceptedAt?: number;
+  assignedAt?: number;
   departedAt?: number;
   arrivedAt?: number;
   deliveredAt?: number;

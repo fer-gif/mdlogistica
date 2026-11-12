@@ -11,8 +11,8 @@ interface LoginScreenProps {
 }
 
 const ROLE_INFO: Record<DemoUser['role'], { label: string; icon: React.ReactNode; desc: string }> = {
-  admin: { label: 'Administración', icon: <LayoutDashboard className="h-4 w-4" />, desc: 'Acceso completo a los 4 paneles' },
-  finance: { label: 'Finanzas', icon: <Landmark className="h-4 w-4" />, desc: 'Facturación, cobranzas y rentabilidad' },
+  admin: { label: 'Administración', icon: <LayoutDashboard className="h-4 w-4" />, desc: 'Operación y finanzas, con vista de chofer y cliente' },
+  finance: { label: 'Finanzas', icon: <Landmark className="h-4 w-4" />, desc: 'Solo la pestaña Finanzas de Administración' },
   driver: { label: 'Chofer', icon: <Smartphone className="h-4 w-4" />, desc: 'App del chofer de la unidad MD-104' },
   client: { label: 'Cliente', icon: <Building2 className="h-4 w-4" />, desc: 'Portal de Arcor S.A.I.C.' },
 };
