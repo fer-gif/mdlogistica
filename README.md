@@ -26,6 +26,8 @@ Prototipo funcional de la plataforma propuesta por **Agencia Muove** para **MD L
 
 Los datos se guardan en el navegador (`localStorage`); "Reiniciar datos de la demo" vuelve al estado inicial.
 
+**Varias pestañas en vivo**: se puede abrir Administración, Chofer y Cliente en pestañas o ventanas distintas del mismo navegador, cada una con su usuario. Lo que se hace en una impacta al instante en las otras (pedidos, asignaciones, inicio de viaje, gastos, facturas, comunicados y el GPS simulado). Una sola pestaña maneja los datos y se los pasa a las demás; si se cierra, otra toma el control sola (`src/state/tabSync.ts`). La sincronización funciona dentro del mismo navegador, no entre dispositivos.
+
 ## Ejecutar
 
 ```bash

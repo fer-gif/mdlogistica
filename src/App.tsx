@@ -30,9 +30,11 @@ import mdLogo from '../logo/logo.png';
 const SESSION_KEY = 'md_logistica_session';
 const NOTICE_KEY = 'md_logistica_notice_hidden';
 
+// La sesión vive en sessionStorage: cada pestaña tiene su propio usuario (admin, chofer o cliente)
+// y sobrevive a la recarga, mientras que los datos de la demo se comparten entre pestañas.
 function readSession(): DemoUser | null {
   try {
-    const name = localStorage.getItem(SESSION_KEY);
+    const name = sessionStorage.getItem(SESSION_KEY);
     return DEMO_USERS.find((u) => u.username === name) ?? null;
   } catch {
     return null;
@@ -44,7 +46,7 @@ export function App() {
 
   const login = (u: DemoUser) => {
     try {
-      localStorage.setItem(SESSION_KEY, u.username);
+      sessionStorage.setItem(SESSION_KEY, u.username);
     } catch {
       /* sin almacenamiento */
     }
@@ -52,7 +54,7 @@ export function App() {
   };
   const logout = () => {
     try {
-      localStorage.removeItem(SESSION_KEY);
+      sessionStorage.removeItem(SESSION_KEY);
     } catch {
       /* sin almacenamiento */
     }
@@ -361,7 +363,9 @@ function ToastStack({ filter }: { filter: (n: SystemNotification) => boolean }) 
       fresh.push(n);
     }
     lastIdRef.current = list[0].id;
-    const show = fresh.filter((n) => n.toast && filter(n));
+    // Solo avisos recientes: al ponerse al día con otra pestaña o reiniciar la demo no se muestran eventos viejos.
+    const recent = Date.now() - 20000;
+    const show = fresh.filter((n) => n.toast && filter(n) && n.at > recent);
     if (show.length) setToasts((prev) => [...show.reverse(), ...prev].slice(0, 3));
   }, [state.notifications, filter]);
 

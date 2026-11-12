@@ -55,6 +55,8 @@ export interface DemoState {
   isOffline: boolean;
   sim: { running: boolean; speed: SimSpeed };
   seq: { trip: number; invoice: number; cte: number; remito: number; carta: number };
+  /** Versión para sincronizar pestañas. La maneja DemoContext, no el reductor. */
+  sync?: { epoch: number; rev: number };
 }
 
 export function createInitialState(): DemoState {
@@ -77,7 +79,8 @@ export function createInitialState(): DemoState {
   };
 }
 
-export function loadState(): DemoState {
+/** Estado guardado en este navegador, o null si no hay uno válido. */
+export function readStoredState(): DemoState | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -85,9 +88,13 @@ export function loadState(): DemoState {
       if (parsed && parsed.version === STATE_VERSION && Array.isArray(parsed.trips)) return parsed;
     }
   } catch {
-    // almacenamiento no disponible: se usa el estado inicial
+    // almacenamiento no disponible
   }
-  return createInitialState();
+  return null;
+}
+
+export function loadState(): DemoState {
+  return readStoredState() ?? createInitialState();
 }
 
 export function saveState(state: DemoState) {
